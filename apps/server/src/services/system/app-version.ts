@@ -7,12 +7,58 @@ const NPM_LATEST_URL = "https://registry.npmjs.org/bb-app/latest";
 const NPM_LATEST_TIMEOUT_MS = 5_000;
 const NPM_LATEST_CACHE_TTL_MS = 60 * 60 * 1000;
 const UPGRADE_COMMAND = "npx bb-app@latest";
+const FORK_UPGRADE_COMMAND = "bb-update-fork --pull";
 
 const npmLatestResponseSchema = z
   .object({
     version: z.string().min(1),
   })
   .passthrough();
+
+/**
+ * True when this install is a local/fork build stamped as a prerelease of the
+ * public X.Y.Z line (e.g. `0.36.0-agustif.5663b9b`). Semver treats that as
+ * older than npm `0.36.0`, which would wrongly advertise an "upgrade" that
+ * replaces the fork with upstream.
+ */
+export function isForkStampedVersion(version: string): boolean {
+  const parsed = semver.parse(version);
+  if (parsed === null || parsed.prerelease.length === 0) {
+    return false;
+  }
+  return parsed.prerelease.some(
+    (part) => typeof part === "string" && part.toLowerCase() === "agustif",
+  );
+}
+
+/**
+ * Whether npm `latest` should be offered as an upgrade over the running build.
+ *
+ * Custom prereleases of the same X.Y.Z as a stable npm release are not upgrades
+ * — installing that release would wipe fork patches. A newer X.Y.Z still is.
+ */
+export function isNpmUpdateAvailable(
+  currentVersion: string,
+  latestVersion: string,
+): boolean {
+  const parsedCurrent = semver.parse(currentVersion);
+  const parsedLatest = semver.parse(latestVersion);
+  if (parsedCurrent === null || parsedLatest === null) {
+    return false;
+  }
+
+  if (
+    parsedCurrent.prerelease.length > 0 &&
+    parsedLatest.prerelease.length === 0 &&
+    parsedCurrent.major === parsedLatest.major &&
+    parsedCurrent.minor === parsedLatest.minor &&
+    parsedCurrent.patch === parsedLatest.patch
+  ) {
+    return false;
+  }
+
+  return semver.gt(parsedLatest, parsedCurrent);
+}
 
 export interface AppVersionService {
   getSystemVersion(
@@ -131,13 +177,16 @@ export function createAppVersionService(
     async getSystemVersion(
       args: AppVersionGetSystemVersionArgs = {},
     ): Promise<SystemVersionResponse> {
+      const upgradeCommand = isForkStampedVersion(config.appVersion)
+        ? FORK_UPGRADE_COMMAND
+        : UPGRADE_COMMAND;
       const baseResponse: SystemVersionResponse = {
         currentVersion: config.appVersion,
         latestVersion: null,
         source: "npm",
         updateAvailable: false,
         isDevelopment: config.isDevelopment,
-        upgradeCommand: UPGRADE_COMMAND,
+        upgradeCommand,
       };
 
       if (config.isDevelopment) {
@@ -167,7 +216,7 @@ export function createAppVersionService(
       return {
         ...baseResponse,
         latestVersion,
-        updateAvailable: semver.gt(parsedLatest, parsedCurrent),
+        updateAvailable: isNpmUpdateAvailable(config.appVersion, latestVersion),
       };
     },
   };

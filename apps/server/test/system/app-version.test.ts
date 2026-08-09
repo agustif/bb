@@ -287,4 +287,37 @@ describe("createAppVersionService", () => {
     expect(response.latestVersion).toBe("0.0.5+build.1");
     expect(response.updateAvailable).toBe(false);
   });
+
+  it("does not flag a same X.Y.Z fork prerelease as behind npm latest", async () => {
+    // semver.gt("0.36.0", "0.36.0-agustif.5663b9b") === true, but installing
+    // npm latest would wipe the fork. Same core version must not warn.
+    const service = createAppVersionService({
+      config: {
+        appVersion: "0.36.0-agustif.5663b9b",
+        isDevelopment: false,
+      },
+      fetchImpl: createStubFetch([{ body: { version: "0.36.0" } }], []),
+      logger: testLogger,
+    });
+    const response = await service.getSystemVersion();
+    expect(response.currentVersion).toBe("0.36.0-agustif.5663b9b");
+    expect(response.latestVersion).toBe("0.36.0");
+    expect(response.updateAvailable).toBe(false);
+    expect(response.upgradeCommand).toBe("bb-update-fork --pull");
+  });
+
+  it("still flags a newer npm X.Y.Z over a fork prerelease of an older line", async () => {
+    const service = createAppVersionService({
+      config: {
+        appVersion: "0.36.0-agustif.5663b9b",
+        isDevelopment: false,
+      },
+      fetchImpl: createStubFetch([{ body: { version: "0.37.0" } }], []),
+      logger: testLogger,
+    });
+    const response = await service.getSystemVersion();
+    expect(response.latestVersion).toBe("0.37.0");
+    expect(response.updateAvailable).toBe(true);
+    expect(response.upgradeCommand).toBe("bb-update-fork --pull");
+  });
 });
