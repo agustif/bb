@@ -1,7 +1,7 @@
 {
   "name": "bb-app",
-  "version": "0.36.0",
-  "description": "bb app launcher for npx",
+  "version": "0.36.0-agustif.1",
+  "description": "bb app launcher (agustif fork of get-bb/bb)",
   "keywords": [
     "bb",
     "coding-agent",
@@ -11,13 +11,13 @@
     "codex",
     "claude-code"
   ],
-  "homepage": "https://github.com/get-bb/bb#readme",
+  "homepage": "https://github.com/agustif/bb#readme",
   "bugs": {
-    "url": "https://github.com/get-bb/bb/issues"
+    "url": "https://github.com/agustif/bb/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/get-bb/bb.git",
+    "url": "git+https://github.com/agustif/bb.git",
     "directory": "packages/bb-app"
   },
   "type": "module",
