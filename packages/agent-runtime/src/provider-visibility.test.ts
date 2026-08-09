@@ -148,6 +148,26 @@ describe("provider visibility raw events", () => {
     });
   });
 
+  it("classifies Pi queue_update events as noise", () => {
+    expect(
+      piVisibilityMetadata.describeRawEvent({
+        jsonrpc: "2.0",
+        method: "sdk/message",
+        params: {
+          threadId: "thread-1",
+          message: {
+            type: "queue_update",
+            steering: ["focus on the failing test"],
+            followUp: [],
+          },
+        },
+      } satisfies JsonRpcMessage),
+    ).toEqual({
+      kind: "sdk/queue_update",
+      coverage: "noise",
+    });
+  });
+
   it("classifies Codex turn moderation metadata as noise", () => {
     expect(
       codexVisibilityMetadata.describeRawEvent({

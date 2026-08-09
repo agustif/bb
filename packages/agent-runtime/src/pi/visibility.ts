@@ -35,6 +35,7 @@ type PiSdkEventType =
   | "message_end"
   | "message_start"
   | "message_update"
+  | "queue_update"
   | "tool_execution_end"
   | "tool_execution_start"
   | "tool_execution_update"
@@ -119,6 +120,7 @@ function toPiSdkEventType(type: string | undefined): PiSdkEventType {
     case "message_end":
     case "message_start":
     case "message_update":
+    case "queue_update":
     case "tool_execution_end":
     case "tool_execution_start":
     case "tool_execution_update":
@@ -254,6 +256,7 @@ function parsePiRawEvent(event: JsonRpcMessage): PiRawEvent {
     case "auto_retry_start":
     case "compaction_end":
     case "compaction_start":
+    case "queue_update":
     case "tool_execution_end":
     case "tool_execution_update":
     case "turn_end":
@@ -304,6 +307,7 @@ function describeParsedPiRawEvent(
           return { kind: `sdk/${event.sdkType}`, coverage: "normalized" };
         case "auto_retry_end":
         case "auto_retry_start":
+        case "queue_update":
         case "turn_end":
         case "turn_start":
           return { kind: `sdk/${event.sdkType}`, coverage: "noise" };

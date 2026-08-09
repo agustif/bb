@@ -217,7 +217,11 @@ const piEventTypeSchema = z
 // AgentSession._emitAgentSettled). BB already derives turn completion from
 // `agent_end` plus its `willRetry` flag, so the settle signal carries nothing
 // extra for us.
-const PI_IGNORED_EVENT_TYPES = new Set(["agent_settled"]);
+//
+// `queue_update` reports Pi's pending steering/follow-up queues. The bridge
+// consumes those events for steer ack tracking; they must not leak into the
+// user transcript as unhandled SDK noise.
+const PI_IGNORED_EVENT_TYPES = new Set(["agent_settled", "queue_update"]);
 
 const piIgnoredEventSchema = z
   .object({ type: z.string() })

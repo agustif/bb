@@ -1134,6 +1134,28 @@ describe("pi provider adapter", () => {
     expect(events).toEqual([]);
   });
 
+  it("translateEvent drops queue_update instead of surfacing it in the transcript", () => {
+    // Pi emits queue_update when steering/follow-up queues change. The bridge
+    // uses those events for steer ack tracking; they must not render as
+    // "Unhandled Pi event" in the user transcript.
+    const adapter = createPiProviderAdapter();
+
+    const events = adapter.translateEvent({
+      jsonrpc: "2.0",
+      method: "sdk/message",
+      params: {
+        threadId: "pi-thread-1",
+        message: {
+          type: "queue_update",
+          steering: ["focus on the failing test"],
+          followUp: [],
+        },
+      },
+    });
+
+    expect(events).toEqual([]);
+  });
+
   it("translateEvent scopes unknown sdk envelopes to the active turn", () => {
     const adapter = createPiProviderAdapter();
     const context = { threadId: "pi-thread-1" };
