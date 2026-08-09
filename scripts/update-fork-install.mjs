@@ -62,6 +62,33 @@ function resolvePnpm() {
   throw new Error("pnpm not found; enable corepack or install pnpm first");
 }
 
+function npmCapture(commandArgs) {
+  // Always run npm outside the monorepo so packageManager=pnpm does not block it.
+  return runCapture("npm", commandArgs, { cwd: tmpdir() });
+}
+
+function canWriteGlobalNpmRoot() {
+  try {
+    const root = npmCapture(["root", "-g"]);
+    // Probe rename rights the same way npm install -g does.
+    const probe = join(root, ".bb-fork-write-probe");
+    writeFileSync(probe, "ok");
+    rmSync(probe, { force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolveNpmGlobalInstallCommand(tarballPath) {
+  const args = ["install", "-g", tarballPath];
+  if (canWriteGlobalNpmRoot()) {
+    return { command: "npm", args };
+  }
+  // Prefer passwordless sudo when available; otherwise interactive sudo.
+  return { command: "sudo", args: ["npm", ...args] };
+}
+
 function main() {
   process.chdir(repoRoot);
   const pnpm = resolvePnpm();
@@ -160,19 +187,30 @@ function main() {
       );
 
       console.log(`→ npm install -g ${cachedTarball}`);
-      run("npm", ["install", "-g", cachedTarball], { env });
+      // Run outside the monorepo cwd so npm does not refuse because of the
+      // root packageManager=pnpm field. Use sudo when the global prefix is root-owned.
+      const install = resolveNpmGlobalInstallCommand(cachedTarball);
+      run(install.command, install.args, {
+        env,
+        cwd: tmpdir(),
+      });
 
       // Pin a tiny helper so `bb-update-fork` always hits this checkout.
-      const binDir = runCapture("npm", ["bin", "-g"], { env });
+      const binDir = join(npmCapture(["prefix", "-g"]), "bin");
       const helperPath = join(binDir, "bb-update-fork");
-      writeFileSync(
-        helperPath,
-        `#!/usr/bin/env bash
+      const helperBody = `#!/usr/bin/env bash
 set -euo pipefail
 exec node ${JSON.stringify(join(repoRoot, "scripts/update-fork-install.mjs"))} "$@"
-`,
-        { mode: 0o755 },
-      );
+`;
+      try {
+        writeFileSync(helperPath, helperBody, { mode: 0o755 });
+      } catch {
+        const tmpHelper = join(tmpdir(), "bb-update-fork");
+        writeFileSync(tmpHelper, helperBody, { mode: 0o755 });
+        run("sudo", ["cp", tmpHelper, helperPath], { env });
+        run("sudo", ["chmod", "755", helperPath], { env });
+        rmSync(tmpHelper, { force: true });
+      }
       console.log(`→ installed helper ${helperPath}`);
     } finally {
       rmSync(packDir, { recursive: true, force: true });
