@@ -301,7 +301,8 @@ describe("createAppVersionService", () => {
     });
     const response = await service.getSystemVersion();
     expect(response.currentVersion).toBe("0.36.0-agustif.5663b9b");
-    expect(response.latestVersion).toBe("0.36.0");
+    // Same core as npm latest: surface current so UI does not paint A→B.
+    expect(response.latestVersion).toBe("0.36.0-agustif.5663b9b");
     expect(response.updateAvailable).toBe(false);
     expect(response.upgradeCommand).toBe("bb-update-fork --pull");
   });

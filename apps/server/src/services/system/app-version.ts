@@ -213,10 +213,28 @@ export function createAppVersionService(
         return { ...baseResponse, latestVersion };
       }
 
+      const updateAvailable = isNpmUpdateAvailable(
+        config.appVersion,
+        latestVersion,
+      );
+
+      // Fork prereleases of the same X.Y.Z as npm latest are not upgrades.
+      // Report latest as current so Settings/CLI do not paint a fake A→B arrow.
+      const sameCoreAsLatest =
+        parsedCurrent.major === parsedLatest.major &&
+        parsedCurrent.minor === parsedLatest.minor &&
+        parsedCurrent.patch === parsedLatest.patch;
+      const displayLatestVersion =
+        !updateAvailable &&
+        isForkStampedVersion(config.appVersion) &&
+        sameCoreAsLatest
+          ? config.appVersion
+          : latestVersion;
+
       return {
         ...baseResponse,
-        latestVersion,
-        updateAvailable: isNpmUpdateAvailable(config.appVersion, latestVersion),
+        latestVersion: displayLatestVersion,
+        updateAvailable,
       };
     },
   };
